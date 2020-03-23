@@ -48,7 +48,7 @@ def getSetPieces(setName):
     requestString = "http://api.warframe.market/v1/items/{}".format(setName)
     setPieces = requests.get(requestString, headers={"platform":"pc", "language":"en"}).json()
     setPieces = setPieces["payload"]["item"]["items_in_set"]
-    
+
     setPieces = [x for x in setPieces if not x["url_name"].endswith("_set")]
     for i in range(len(setPieces)):
             output.append(setPieces[i]["url_name"])
@@ -97,9 +97,6 @@ def getPiecemealPrice(setName):
 
         output["{}_online".format(setPieces[i])] = orders[0]["platinum"]
     
-    print(setPieces[0])
-    print(output[setPieces[0]])
-    print(output["{}_online".format(setPieces[0])])
+    return output
 
-#getPiecemealPrice("mesa_prime_set")
-getSetPrice("mesa_prime_set")
+
