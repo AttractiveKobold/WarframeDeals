@@ -8,7 +8,6 @@ def basicSearch(itemName):
     requestString = "http://api.warframe.market/v1/items/{}/orders".format(itemName)
     response = requests.get(requestString, headers={"platform":"pc", "language":"en"})
     response = response.json()
-
     orders = response["payload"]["orders"]
 
     orders = [x for x in orders if
@@ -50,17 +49,31 @@ def getSetPieces(setName):
     return output
 
 def getSetPrice(setName):
+    
+    output = []
+
     requestString = "http://api.warframe.market/v1/items/{}/orders".format(setName)
     orders = requests.get(requestString, headers={"platform":"pc", "language":"en"})
     orders = orders.json()
     orders = orders["payload"]["orders"]
 
-    outputSetName = setName.replace('_', ' ').title()
-    print(outputSetName)
+    orders = [x for x in orders if
+        x["order_type"] == "sell" and
+        x["visible"] == True]
+    
+    orders = sorted(orders, key=lambda x: x["platinum"])
 
-getSetPieces("mesa_prime_set")
-getSetPieces("rhino_prime_set")
+    cheapestPrice = orders[0]["platinum"]
 
-#uncomment for set prices
-"""print()
-basicSearch("mesa_prime_set")"""
+    orders = [x for x in orders if
+        x["user"]["status"] == "ingame"]
+
+    orders = sorted(orders, key=lambda x: x["platinum"])
+
+    cheapestPriceOnline = orders[0]["platinum"]
+
+    output.append(cheapestPrice)
+    output.append(cheapestPriceOnline)
+
+    print(output)
+
