@@ -99,4 +99,32 @@ def getPiecemealPrice(setName):
     
     return output
 
+def getPrices(setName):
+    piecesPrices = getPiecemealPrice(setName)
+    pieces = getSetPieces(setName)
+    titlePieces = []
+    wholeSet = getSetPrice(setName)
+    setName = setName.replace('_', ' ').title()
 
+    piecemealTotal = 0
+    piecemealOnlineTotal = 0
+
+    for i in range(len(pieces)):
+        piecemealTotal += piecesPrices[pieces[i]]
+        piecemealOnlineTotal += piecesPrices[pieces[i] + "_online"]
+        titlePieces.append(pieces[i].replace('_',' ').title())
+
+    print()
+    print(setName)
+    print("Cheapest Set: " + str(wholeSet[0]))
+    print("Cheapest Online Set: " + str(wholeSet[1]))
+    print("Cheapest Parts:")
+    for i in range(len(pieces)):
+        print("\t{}: {}".format(titlePieces[i], piecesPrices[pieces[i]]))
+    print("\tTotal: " + str(piecemealTotal))
+    print("Cheapest Online Parts:")
+    for i in range(len(pieces)):
+        print("\t{}: {}".format(titlePieces[i], piecesPrices[pieces[i] + "_online"]))
+    print("\tTotal: " + str(piecemealOnlineTotal))
+
+getPrices("mesa_prime_set")
