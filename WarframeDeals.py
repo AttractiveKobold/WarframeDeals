@@ -116,15 +116,13 @@ def getPrices(setName):
 
     print()
     print(setName)
-    print("Cheapest Set: " + str(wholeSet[0]))
-    print("Cheapest Online Set: " + str(wholeSet[1]))
+    print("Cheapest Set: " + str(int(wholeSet[0])))
+    print("Cheapest Online Set: " + str(int(wholeSet[1])))
     print("Cheapest Parts:")
     for i in range(len(pieces)):
-        print("\t{}: {}".format(titlePieces[i], piecesPrices[pieces[i]]))
-    print("\tTotal: " + str(piecemealTotal))
+        print("\t{}: {}".format(titlePieces[i], int(piecesPrices[pieces[i]])))
+    print("\tTotal: " + str(int(piecemealTotal)))
     print("Cheapest Online Parts:")
     for i in range(len(pieces)):
-        print("\t{}: {}".format(titlePieces[i], piecesPrices[pieces[i] + "_online"]))
-    print("\tTotal: " + str(piecemealOnlineTotal))
-
-getPrices("mesa_prime_set")
+        print("\t{}: {}".format(titlePieces[i], int(piecesPrices[pieces[i] + "_online"])))
+    print("\tTotal: " + str(int(piecemealOnlineTotal)))
