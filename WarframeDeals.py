@@ -1,14 +1,14 @@
 import requests
 import json
 
-
-
+def getOrders(itemName):
+    requestString = "http://api.warframe.market/v1/items/{}/orders".format(itemName)
+    orders = requests.get(requestString, headers={"platform":"pc", "language":"en"}).json()
+    orders = orders["payload"]["orders"]
+    return orders
 
 def basicSearch(itemName):
-    requestString = "http://api.warframe.market/v1/items/{}/orders".format(itemName)
-    response = requests.get(requestString, headers={"platform":"pc", "language":"en"})
-    response = response.json()
-    orders = response["payload"]["orders"]
+    orders = getOrders(itemName)
 
     orders = [x for x in orders if
         x["order_type"] == "sell" and
@@ -33,17 +33,24 @@ def basicSearch(itemName):
     text = json.dumps(orders, indent=4)
     print(text)
 
+def filterOrders(orders):
+    orders = [x for x in orders if
+        x["order_type"] == "sell" and
+        x["visible"] == True and
+        x["region"] == "en" and
+        x["platform"] == "pc"]
+
+    return orders
+
 def getSetPieces(setName):
     output = []
 
     requestString = "http://api.warframe.market/v1/items/{}".format(setName)
-    setPieces = requests.get(requestString, headers={"platform":"pc", "language":"en"})
-    setPieces = setPieces.json()
-
+    setPieces = requests.get(requestString, headers={"platform":"pc", "language":"en"}).json()
     setPieces = setPieces["payload"]["item"]["items_in_set"]
+    
     setPieces = [x for x in setPieces if not x["url_name"].endswith("_set")]
     for i in range(len(setPieces)):
-            #setPieces[i] = {k: v for (k, v) in setPieces[i].items() if k == "url_name"}
             output.append(setPieces[i]["url_name"])
     
     return output
@@ -52,14 +59,9 @@ def getSetPrice(setName):
     
     output = []
 
-    requestString = "http://api.warframe.market/v1/items/{}/orders".format(setName)
-    orders = requests.get(requestString, headers={"platform":"pc", "language":"en"})
-    orders = orders.json()
-    orders = orders["payload"]["orders"]
+    orders = getOrders(setName)
 
-    orders = [x for x in orders if
-        x["order_type"] == "sell" and
-        x["visible"] == True]
+    orders = filterOrders(orders)
     
     orders = sorted(orders, key=lambda x: x["platinum"])
 
@@ -75,5 +77,29 @@ def getSetPrice(setName):
     output.append(cheapestPrice)
     output.append(cheapestPriceOnline)
 
-    print(output)
+    return output
 
+def getPiecemealPrice(setName):
+    setPieces = getSetPieces(setName)
+    output = {}
+
+    for i in range(len(setPieces)):
+        orders = getOrders(setPieces[i])
+
+        orders = filterOrders(orders)
+        orders = sorted(orders, key=lambda x: x["platinum"])
+        
+        output[setPieces[i]] = orders[0]["platinum"]
+
+        orders = [x for x in orders if
+            x["user"]["status"] == "ingame"]
+        orders = sorted(orders, key=lambda x: x["platinum"])
+
+        output["{}_online".format(setPieces[i])] = orders[0]["platinum"]
+    
+    print(setPieces[0])
+    print(output[setPieces[0]])
+    print(output["{}_online".format(setPieces[0])])
+
+#getPiecemealPrice("mesa_prime_set")
+getSetPrice("mesa_prime_set")
