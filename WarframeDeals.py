@@ -126,3 +126,5 @@ def getPrices(setName):
     for i in range(len(pieces)):
         print("\t{}: {}".format(titlePieces[i], int(piecesPrices[pieces[i] + "_online"])))
     print("\tTotal: " + str(int(piecemealOnlineTotal)))
+
+getPrices("chroma_prime_set")
