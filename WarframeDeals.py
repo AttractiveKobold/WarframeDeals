@@ -132,20 +132,27 @@ def getPiecemealPrice(setName):
     return output
 
 def getPrices(setName):
-    setName = '{}_prime_set'.format(setName)
-    piecesPrices = getPiecemealPrice(setName)
-    pieces = getSetPieces(setName)
-    titlePieces = []
-    wholeSet = getSetPrice(setName)
-    setName = setName.replace('_', ' ').title()
-
+    setName = '{}_prime_set'.format(setName.lower())
     piecemealTotal = 0
     piecemealOnlineTotal = 0
+    titlePieces = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=None) as executor:
+
+        piecesPrices = executor.submit(getPiecemealPrice, setName)
+        pieces = executor.submit(getSetPieces, setName)
+        wholeSet = executor.submit(getSetPrice, setName)
+        
+        piecesPrices = piecesPrices.result()
+        pieces = pieces.result()
+        wholeSet = wholeSet.result()
 
     for i in range(len(pieces)):
         piecemealTotal += piecesPrices[pieces[i]]
         piecemealOnlineTotal += piecesPrices[pieces[i] + "_online"]
         titlePieces.append(pieces[i].replace('_',' ').title())
+
+    setName = setName.replace('_', ' ').title()
 
     output = []
 
