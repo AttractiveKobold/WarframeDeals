@@ -12,6 +12,7 @@ class Application(Frame):
         self.master = master
         self.master.title('Warframe Deals')
         self.master.geometry('400x250')
+        self.master.resizable(0,0)
         self.pack()
         self.createWidgets()
 
