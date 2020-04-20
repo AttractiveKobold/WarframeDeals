@@ -1,5 +1,6 @@
 import requests
 import json
+import concurrent.futures
 from tkinter import *
 from tkinter import scrolledtext
 from tkinter.ttk import *
@@ -15,32 +16,46 @@ class Application(Frame):
         self.createWidgets()
 
     def createWidgets(self):
-        self.cbVendors = Combobox(self, values=['Cephalon Simaris', 'Red Veil'], state='readonly')
+        self.cbVendors = Combobox(self, values=['Prime Set', 'Cephalon Simaris', 'Red Veil'], state='readonly')
         self.cbVendors.current(0)
         self.cbVendors.grid(row=0, column=0)
-        
+        self.cbVendors.bind('<<ComboboxSelected>>', self.onComboChange)
+
         self.input = Entry(self)
         self.input.grid(row=1, column=0)
 
-        self.btnVendors = Button(self, text='Submit', command=self.getVendorItems)
+        self.btnVendors = Button(self, text='Submit', command=self.getVendorPrices)
         self.btnVendors.grid(row=2,column=0)
 
-    def getVendorItems(self):
-        if (self.cbVendors.get() == 'Cephalon Simaris'):
-            modList = getSimarisItems()
-        elif (self.cbVendors.get() == 'Red Veil'):
-            modList = getRedVeilItems()
-
-        output = ''
-
-        for i in modList:
-            output += ('{}: {}\n'.format(i[0], i[1]))
-
-
+    def getVendorPrices(self):
         self.outputBox = scrolledtext.ScrolledText(self, width=40, height=10)
-        self.outputBox.insert(INSERT, output)
+
+        choice = self.cbVendors.get()
+        modList = ''
+        output = ''
+        if (choice == 'Prime Set'):
+            output = getPrices(self.input.get())
+        else:
+            modList = getVendorItems(choice)
+
+        if (modList != ''):
+            output = ''
+            for i in modList:
+                output += ('{}: {}\n'.format(i[0], i[1]))
+            self.outputBox.insert(INSERT, output)
+        else:
+            for i in output:
+                self.outputBox.insert(INSERT, i + '\n')
+
+
         self.outputBox.config(state='disabled')
-        self.outputBox.grid(row = 3, column=0)
+        self.outputBox.grid(row=3, column=0)
+        
+    def onComboChange(self, eventObject):
+        if (self.cbVendors.get() != 'Prime Set'):
+            self.input.grid_forget()
+        else:
+            self.input.grid(row=1, column=0)
         
 
 
@@ -49,32 +64,6 @@ def getOrders(itemName):
     orders = requests.get(requestString, headers={"platform":"pc", "language":"en"}).json()
     orders = orders["payload"]["orders"]
     return orders
-
-def basicSearch(itemName):
-    orders = getOrders(itemName)
-
-    orders = [x for x in orders if
-        x["order_type"] == "sell" and
-        x["visible"] == True]
-
-    orders = sorted(orders, key=lambda x: x["platinum"])
-
-    orders = orders[:5]
-
-    for i in range(len(orders)):
-        orders[i] = {k: v for (k, v) in orders[i].items() if
-            k == "platinum" or
-            k == "user"}
-        
-        orders[i]["status"] = orders[i]["user"]["status"]
-        orders[i]["user"] = orders[i]["user"]["ingame_name"]
-
-
-    text = itemName.replace('_', ' ').title()
-    print(text)
-
-    text = json.dumps(orders, indent=4)
-    print(text)
 
 def filterOrders(orders):
     orders = [x for x in orders if
@@ -158,40 +147,25 @@ def getPrices(setName):
         piecemealOnlineTotal += piecesPrices[pieces[i] + "_online"]
         titlePieces.append(pieces[i].replace('_',' ').title())
 
-    print()
-    print(setName)
-    print("Cheapest Set: " + str(int(wholeSet[0])))
-    print("Cheapest Online Set: " + str(int(wholeSet[1])))
-    print("Cheapest Parts:")
+    output = []
+
+    
+    output.append(setName)
+    output.append("Cheapest Set: " + str(int(wholeSet[0])))
+    output.append("Cheapest Online Set: " + str(int(wholeSet[1])))
+    output.append("Cheapest Parts:")
     for i in range(len(pieces)):
-        print("\t{}: {}".format(titlePieces[i], int(piecesPrices[pieces[i]])))
-    print("\tTotal: " + str(int(piecemealTotal)))
-    print("Cheapest Online Parts:")
+        output.append("\t{}: {}".format(titlePieces[i], int(piecesPrices[pieces[i]])))
+    output.append("\tTotal: " + str(int(piecemealTotal)))
+    output.append("Cheapest Online Parts:")
     for i in range(len(pieces)):
-        print("\t{}: {}".format(titlePieces[i], int(piecesPrices[pieces[i] + "_online"])))
-    print("\tTotal: " + str(int(piecemealOnlineTotal)))
+        output.append("\t{}: {}".format(titlePieces[i], int(piecesPrices[pieces[i] + "_online"])))
+    output.append("\tTotal: " + str(int(piecemealOnlineTotal)))
 
-def getVendorPrices(items):
-    final_items = {}
+    return output
 
-    for i in range(len(items)):
-        requestString = "http://api.warframe.market/v1/items/{}/orders".format(items[i])
-        orders = requests.get(requestString).json()
-        orders = orders["payload"]["orders"]
-        orders = [x for x in orders if
-        x["user"]["status"] == "ingame"]
-        
-        orders = sorted(orders, key=lambda x: x["platinum"])
-        cheapestPriceOnline = orders[0]["platinum"]
-
-        final_items[items[i]] = cheapestPriceOnline
-
-    final_items = sorted(final_items.items(), key=lambda x: x[1], reverse=True)
-
-    return final_items
-
-def getSimarisItems():
-    items = ['looter',
+def getVendorItems(vendor):
+    items = {'Cephalon Simaris': ['looter',
             'detect_vulnerability',
             'reawaken',
             'negate',
@@ -200,14 +174,9 @@ def getSimarisItems():
             'energy_conversion',
             'health_conversion',
             'astral_autopsy',
-            'companion_weapon_riven_mod_(veiled)']
-    
-    
-
-    return getVendorPrices(items)
-
-def getRedVeilItems():
-    items = ['accumulating_whipclaw',
+            'companion_weapon_riven_mod_(veiled)'],
+            
+            'Red Veil': ['accumulating_whipclaw',
             'anchored_glide',
             'ballistic_bullseye',
             'beguiling_lantern',
@@ -259,9 +228,28 @@ def getRedVeilItems():
             'venari_bodyguard',
             'venom_dose',
             'warding_thurible'
-            ]
+            ]}
+
+    prices = {}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=None) as executor:
+        prices.update(executor.map(getItem, items[vendor]))
+
+    prices = sorted(prices.items(), key=lambda x: x[1], reverse=True)
+
+    return prices
+
+def getItem(item):
+    requestString = "http://api.warframe.market/v1/items/{}/orders".format(item)
+    orders = requests.get(requestString).json()
+    orders = orders["payload"]["orders"]
+    orders = [x for x in orders if
+    x["user"]["status"] == "ingame"]
     
-    return getVendorPrices(items)
+    orders = sorted(orders, key=lambda x: x["platinum"])
+    cheapestPriceOnline = orders[0]["platinum"]
+
+    return (item, cheapestPriceOnline)
 
 root = Tk()
 app = Application(master = root)
