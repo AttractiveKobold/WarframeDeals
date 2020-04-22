@@ -17,52 +17,69 @@ class Application(Frame):
         self.createWidgets()
 
     def createWidgets(self):
-        self.cbVendors = Combobox(self, values=['Prime Set', 'Cephalon Simaris', 'Red Veil'], state='readonly')
-        self.cbVendors.current(0)
-        self.cbVendors.grid(row=0, column=0)
-        self.cbVendors.bind('<<ComboboxSelected>>', self.onComboChange)
+        self.cbSelection = Combobox(self, values=['Prime Set', 'Profile', 'Cephalon Simaris', 'Red Veil'], state='readonly')
+        self.cbSelection.current(0)
+        self.cbSelection.grid(row=0, column=0)
+        self.cbSelection.bind('<<ComboboxSelected>>', self.onComboChange)
 
-        self.input = Entry(self)
-        self.input.grid(row=1, column=0)
+        self.txtInput = Entry(self)
+        self.txtInput.grid(row=1, column=0)
 
-        self.btnVendors = Button(self, text='Submit', command=self.getVendorPrices)
+        self.btnVendors = Button(self, text='Submit', command=self.submitSearch)
         self.btnVendors.grid(row=2,column=0)
 
-    def getVendorPrices(self):
+    def submitSearch(self):
         self.outputBox = scrolledtext.ScrolledText(self, width=40, height=10)
 
-        choice = self.cbVendors.get()
-        modList = ''
+        choice = self.cbSelection.get()
+        itemList = ''
         output = ''
         if (choice == 'Prime Set'):
-            output = getPrices(self.input.get())
-        else:
-            modList = getVendorItems(choice)
-
-        if (modList != ''):
-            output = ''
-            for i in modList:
-                output += ('{}: {}\n'.format(i[0], i[1]))
-            self.outputBox.insert(INSERT, output)
-        else:
+            output = getPrices(self.txtInput.get())
             for i in output:
-                self.outputBox.insert(INSERT, i + '\n')
+                self.outputBox.insert(END, i + '\n')
+        elif (choice == 'Profile'):
+            output = getProfilePrices(self.txtInput.get())
+            self.outputUndercuts(output)
+        else:
+            itemList = getVendorItems(choice)
+            output = ''
 
+            for i in itemList:
+                output += ('{}: {}\n'.format(i[0], i[1]))
+            self.outputBox.insert(END, output)
 
         self.outputBox.config(state='disabled')
         self.outputBox.grid(row=3, column=0)
         
     def onComboChange(self, eventObject):
-        if (self.cbVendors.get() != 'Prime Set'):
-            self.input.grid_forget()
+        if (self.cbSelection.get() != 'Prime Set' and self.cbSelection.get() != 'Profile'):
+            self.txtInput.grid_forget()
         else:
-            self.input.grid(row=1, column=0)
-        
+            self.txtInput.grid(row=1, column=0)
 
+    def outputUndercuts(self, items):
+        for i in items:
+            line = ''
+            line += i.name + ':\n'
+            if (i.modRank != -1):
+                line += '\tRank: {}\n'.format(i.modRank)
+            line += '\tYour Price: {}\n'.format(i.yourPrice)
+            line += '\tLowest Online Price: {}\n'.format(i.cheapestOnlinePrice)
+            self.outputBox.insert(END, line)
+        
+class Item:
+    def __init__(self, name = '', cheapestPrice = -1, cheapestOnlinePrice = -1, yourPrice = -1, modRank = -1):
+        super().__init__()
+        self.name = name
+        self.cheapestPrice = cheapestPrice
+        self.cheapestOnlinePrice = cheapestOnlinePrice
+        self.yourPrice = yourPrice
+        self.modRank = modRank
 
 def getOrders(itemName):
     requestString = "http://api.warframe.market/v1/items/{}/orders".format(itemName)
-    orders = requests.get(requestString, headers={"platform":"pc", "language":"en"}).json()
+    orders = requests.get(requestString).json()
     orders = orders["payload"]["orders"]
     return orders
 
@@ -79,7 +96,7 @@ def getSetPieces(setName):
     output = []
 
     requestString = "http://api.warframe.market/v1/items/{}".format(setName)
-    setPieces = requests.get(requestString, headers={"platform":"pc", "language":"en"}).json()
+    setPieces = requests.get(requestString).json()
     setPieces = setPieces["payload"]["item"]["items_in_set"]
 
     setPieces = [x for x in setPieces if not x["url_name"].endswith("_set")]
@@ -112,7 +129,7 @@ def getSetPrice(setName):
 
     return output
 
-def getPiecemealPrice(setName):
+def getPiecemealPrices(setName):
     setPieces = getSetPieces(setName)
     output = {}
 
@@ -124,11 +141,12 @@ def getPiecemealPrice(setName):
         
         output[setPieces[i]] = orders[0]["platinum"]
 
-        orders = [x for x in orders if
-            x["user"]["status"] == "ingame"]
-        orders = sorted(orders, key=lambda x: x["platinum"])
+        for j in orders:
+                if (j["user"]["status"] == "ingame"):
+                    output["{}_online".format(setPieces[i])] = j["platinum"]
+                    break
 
-        output["{}_online".format(setPieces[i])] = orders[0]["platinum"]
+        
     
     return output
 
@@ -140,7 +158,7 @@ def getPrices(setName):
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=None) as executor:
 
-        piecesPrices = executor.submit(getPiecemealPrice, setName)
+        piecesPrices = executor.submit(getPiecemealPrices, setName)
         pieces = executor.submit(getSetPieces, setName)
         wholeSet = executor.submit(getSetPrice, setName)
         
@@ -248,16 +266,75 @@ def getVendorItems(vendor):
     return prices
 
 def getItem(item):
-    requestString = "http://api.warframe.market/v1/items/{}/orders".format(item)
-    orders = requests.get(requestString).json()
-    orders = orders["payload"]["orders"]
-    orders = [x for x in orders if
-    x["user"]["status"] == "ingame"]
-    
+    orders = getOrders(item)
+    orders = filterOrders(orders)
     orders = sorted(orders, key=lambda x: x["platinum"])
-    cheapestPriceOnline = orders[0]["platinum"]
+    
+    cheapestPriceOnline = -1
+
+    for i in orders:
+        if (i["user"]["status"] == "ingame"):
+            cheapestPriceOnline = orders[0]["platinum"] = i["platinum"]
+            break
+    
+    if (cheapestPriceOnline == -1):
+        return (item, -1)
 
     return (item, cheapestPriceOnline)
+
+def getProfilePrices(username):
+    requestString = "https://api.warframe.market/v1/profile/{}/orders".format(username)
+    orders = requests.get(requestString).json()
+    orders = orders['payload']['sell_orders']
+    items = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=None) as executor:
+        for i in executor.map(checkUndercut, orders):
+            items.append(i)
+    
+    return items
+
+def checkUndercut(saleOrder):
+    item = Item()
+    item.name = saleOrder['item']['en']['item_name']
+    item.yourPrice = saleOrder['platinum']
+
+    itemOrders = getOrders(saleOrder['item']['url_name'])
+    itemOrders = filterOrders(itemOrders)
+    itemOrders = sorted(itemOrders, key=lambda x: x["platinum"])
+    if ('mod_rank' in saleOrder.keys()):
+        
+        item.modRank = saleOrder['mod_rank']
+        
+
+        filteredOrders = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=None) as executor:
+            args = ((order, item.modRank) for order in itemOrders)
+            for i in executor.map(lambda a: rankFilter(*a), args):
+                if (i != None):
+                    filteredOrders.append(i)
+
+        item.cheapestPrice = filteredOrders[0]['platinum']
+        for i in filteredOrders:
+            if (i['user']['status'] == 'ingame'):
+                item.cheapestOnlinePrice = i['platinum']
+                break
+        
+    else:
+        item.cheapestPrice = itemOrders[0]['platinum']
+        
+        for i in itemOrders:
+            if (i['user']['status'] == 'ingame'):
+                item.cheapestOnlinePrice = i['platinum']
+                break
+
+    return item
+
+def rankFilter(order, modRank):
+    if ('mod_rank' in order.keys()):
+        if (order['mod_rank'] == modRank):
+            return order
+
 
 root = Tk()
 app = Application(master = root)
