@@ -17,7 +17,7 @@ class Application(Frame):
         self.createWidgets()
 
     def createWidgets(self):
-        self.cbSelection = Combobox(self, values=['Prime Set', 'Profile', 'Cephalon Simaris', 'Red Veil'], state='readonly')
+        self.cbSelection = Combobox(self, values=['Prime Set', 'Undercut', 'Cephalon Simaris', 'Red Veil'], state='readonly')
         self.cbSelection.current(0)
         self.cbSelection.grid(row=0, column=0)
         self.cbSelection.bind('<<ComboboxSelected>>', self.onComboChange)
@@ -38,7 +38,7 @@ class Application(Frame):
             output = getPrices(self.txtInput.get())
             for i in output:
                 self.outputBox.insert(END, i + '\n')
-        elif (choice == 'Profile'):
+        elif (choice == 'Undercut'):
             output = getProfilePrices(self.txtInput.get())
             self.outputUndercuts(output)
         else:
@@ -290,7 +290,8 @@ def getProfilePrices(username):
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=None) as executor:
         for i in executor.map(checkUndercut, orders):
-            items.append(i)
+            if (i!=None):
+                items.append(i)
     
     return items
 
@@ -328,7 +329,8 @@ def checkUndercut(saleOrder):
                 item.cheapestOnlinePrice = i['platinum']
                 break
 
-    return item
+    if (item.cheapestOnlinePrice < item.yourPrice):
+        return item
 
 def rankFilter(order, modRank):
     if ('mod_rank' in order.keys()):
