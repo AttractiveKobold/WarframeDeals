@@ -53,7 +53,7 @@ class Application(Frame):
         self.outputBox.grid(row=3, column=0)
         
     def onComboChange(self, eventObject):
-        if (self.cbSelection.get() != 'Prime Set' and self.cbSelection.get() != 'Profile'):
+        if (self.cbSelection.get() != 'Prime Set' and self.cbSelection.get() != 'Undercut'):
             self.txtInput.grid_forget()
         else:
             self.txtInput.grid(row=1, column=0)
